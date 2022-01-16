@@ -140,12 +140,61 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
 
     return recordings
 
-def remove_duplicate_tracks(unpacked_track_data: [str]):
+
+def remove_duplicate_recordings(raw_recordings_data: [Track]) -> Track:
     """
-    Go through each track from the data, unpacked into a list, and remove any duplicate tracks.
-    :param unpacked_track_data: A list of track titles unpacked from each album, EP, and single.
+    Go through each recording from the data and remove any duplicate tracks.
+    :param raw_recordings_data: A list of Track objects.
     :return: Cleaned list of Track objects for each non-duplicate track.
     """
+    local_recording_data = raw_recordings_data
+    original_length = len(local_recording_data)
+
+    # Hacky shit way of getting this to work, loop through each element and check if any other songs have the element
+    # name as a substring, optimise later - bunch of issues with this buy lets make a start at least.
+    for track in local_recording_data:
+        # Check if the track name appears as a sub string in any other track
+        for other_track in local_recording_data:
+            if local_recording_data.index(other_track) == local_recording_data.index(track):
+                continue
+            elif other_track.name == track.name:
+                # print("\nDuplicate: same name!")
+                # print(f"track = {track} ; other track = {other_track}")
+                # Determine which one to remove
+                #
+                # Is one a single with the same name? Remove that one.
+                if other_track.release_type == "Single":
+                    print(f"Removing album single: {other_track}")
+                    local_recording_data.remove(other_track)
+                elif other_track.release_type == "EP":
+                    print(f"Removing re-released EP track: {other_track}")
+                    local_recording_data.remove(other_track)
+            elif other_track.name.find(track.name) != -1:
+                # Are the words "live", "remix", or "instrumental" in the name? Remove that one.
+                # TODO - add cli flag to allow remixes in the counting
+                for keyword in ["live", "mix", "deluxe", "instrumental", "session"]:
+                    if keyword in other_track.name.lower() or keyword in other_track.release.lower():
+                        # print("\nDuplicate: sub string in name!")
+                        # print(f"Duplicate: track = {track} ; other track = {other_track}")
+                        print(f"Removing {other_track}! as it is likely a remix, instrumental, or live version.")
+                        local_recording_data.remove(other_track)
+                        break
+                # # Edge case detection here, i.e. Zero is NOT a dupe of Mile Zero - they're both
+                # # tracks on different albums.
+                # if track.release != other_track.release and track.release_type != "Single" and other_track.release_type != "Single":
+                #     print(f"Not removing, tracks are not singles and are on different releases.")
+
+    print("\n")
+    for track in local_recording_data:
+        print(track)
+
+    print("\n")
+    print("=" * 32)
+    print(f"Original tracklist length = {original_length}")
+    new_length = len(local_recording_data)
+    print(f"New tracklist length = {new_length}")
+    print(f"Duplicate tracks removed = {original_length - new_length}")
+
     return []
 
 
