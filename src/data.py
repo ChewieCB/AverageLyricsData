@@ -35,7 +35,7 @@ class Release:
 
 
 class Track:
-    def __init__(self, name: str, mb_id: str, release: str):
+    def __init__(self, name: str, mb_id: str, release: str, release_type: str):
         """
 
         :param name:
@@ -45,6 +45,7 @@ class Track:
         self.name = name
         self.mb_id = mb_id
         self.release = release
+        self.release_type = release_type
         self.lyrics: str
 
     def __str__(self):
