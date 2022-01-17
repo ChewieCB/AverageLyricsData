@@ -26,8 +26,9 @@ async def main():
 
         # Clean the data by removing any duplicate songs/singles/remixes/re-releases/etc.
         cleaned_recordings = remove_duplicate_recordings(recordings, artist)
-        for track in cleaned_recordings:
-            print(track)
+
+        # For each song we have, get the lyrics and store them in the class
+        await get_song_lyrics(session, cleaned_recordings, artist)
 
 
 async def get_artist_data(session: aiohttp.ClientSession, url: str) -> Artist:
@@ -50,7 +51,6 @@ async def get_artist_data(session: aiohttp.ClientSession, url: str) -> Artist:
     artist_name = artist_data["artists"][0]["name"]
     artist_id = artist_data["artists"][0]["id"]
     artist_object = Artist(raw_data=artist_data, name=artist_name, mb_id=artist_id)
-    print(artist_id)
 
     return artist_object
 
@@ -75,7 +75,7 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
     while track_count == 0 or tracks_retrieved < track_count:
         # Build the url
         # FIXME - not getting all album data for some reason? Alpha/Omega don't show up :/
-        recordings_url = api_parser.build_recordings_lookup_url(artist.mb_id, tracks_retrieved)
+        recordings_url = api_parser.build_recordings_query_url(artist.mb_id, tracks_retrieved)
 
         # Make a query request to the API
         async with session.get(recordings_url) as response:
@@ -107,10 +107,50 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
     return recordings
 
 
-def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) -> Track:
+async def get_song_lyrics(session: aiohttp.ClientSession, cleaned_recordings: [Track], artist: Artist) -> None:
+    """
+
+    :param session:
+    :param cleaned_recordings:
+    :param artist:
+    :return:
+    """
+    # TODO - optimise async calls here to increase speed
+    for track in cleaned_recordings:
+        # Make a query request to the lyrics API
+        url = api_parser.build_lyrics_url(artist.name, track.name)
+        async with session.get(url) as response:
+            # Workaround status check to prevent crashes
+            # TODO: This is likely an issue with uncommon characters or escape sequences
+            #  being passed in the artist name or song title, implement the cleaning method
+            #  to negate this as much as possible.
+            if response.status != 200:
+                print(f"Bad response {response.status} for {track.name} - Skipping.")
+                continue
+            lyrics_data = await response.json()
+
+        # If we get no lyrics data from the API, show the user an error message and continue
+        if lyrics_data == {'error': 'No lyrics found'}:
+            print(f"No lyrics found for {track.name}")
+            continue
+        # Some songs will be instrumental even after filtering (not all instrumental songs have it in the title)
+        elif lyrics_data == "[Instrumental]":
+            print(f"{track.name}is an instrumental!")
+            continue
+
+        # Remove a known header from the lyrics, we don't want this muddying the word count
+        lyrics = lyrics_data.get("lyrics")
+        cleaned_lyrics = remove_lyrics_credit(lyrics)
+
+        track.lyrics = cleaned_lyrics
+        print(f"{track.name} has {track.word_count} words.")
+
+
+def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) -> [Track]:
     """
     Go through each recording from the data and remove any duplicate tracks.
     :param raw_recordings_data: A list of Track objects.
+    :param artist:
     :return: Cleaned list of Track objects for each non-duplicate track.
     """
     local_recording_data = raw_recordings_data
@@ -127,7 +167,7 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
 
         # Are the words "live", "remix", or "instrumental" in the name? Remove the track.
         # FIXME - still not getting all of them, few DGD instrumental albums slipping through
-        if is_re_release_or_instrumental(track, artist):
+        if is_re_release_or_instrumental(track):
             print(f"Removing {track}! as it is likely a remix, instrumental, or live version.")
             local_recording_data.remove(track)
             continue
@@ -172,18 +212,34 @@ def is_non_artist_song(track: Track, artist: Artist) -> bool:
     return False
 
 
-def is_re_release_or_instrumental(track: Track, artist: Artist) -> bool:
+def is_re_release_or_instrumental(track: Track) -> bool:
     """
     Helper method to detect songs re-released as live or remixed versions,
     and instrumental tracks we don't need to find lyrics for.
     :param track:
-    :param artist:
     :return:
     """
+    # FIXME - refine this, it's removing partial matches that could be valid songs.
     for keyword in ["live", "mix", "deluxe", "instrumental", "session"]:
         if track.name.lower().find(keyword) != -1 or track.release.lower().find(keyword) != -1:
             return True
     return False
+
+
+def remove_lyrics_credit(lyrics: str) -> str:
+    """
+    Helper method to remove known header lines that are returned for some songs on the lyrics API.
+    :param lyrics:
+    :return:
+    """
+    local_lyrics = lyrics
+    # The header line is in French and runs up until the first \r\n escape sequence, so we look for the
+    # start of this substring and trim up until the escape sequence.
+    if local_lyrics.lower().find("paroles de la chanson") != -1:
+        first_escape_index = local_lyrics.index("\r\n")
+        local_lyrics = local_lyrics[first_escape_index:]
+
+    return local_lyrics
 
 
 if __name__ == "__main__":

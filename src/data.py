@@ -1,3 +1,4 @@
+# TODO - dataclasses would probably work better here for most of these.
 
 
 class Artist:
@@ -50,11 +51,27 @@ class Track:
         self.mb_id = mb_id
         self.release = release
         self.release_type = release_type
-        self.lyrics: str
+        self._lyrics: str
+        self.word_count: int = 0
 
     def __str__(self):
         return f"{self.release}: {self.name}"
 
     def __repr__(self):
         return f"{self.release}: {self.name}"
+
+    @property
+    def lyrics(self):
+        """ """
+        return self._lyrics
+
+    @lyrics.setter
+    def lyrics(self, value):
+        self._lyrics = value
+
+        # When we set the lyrics for a track, calculate the number of words in the lyrics as well.
+        if self.lyrics:
+            # Trim the escape characters off of the text and replace them with spaces for easier counting.
+            escaped_lyrics = self.lyrics.replace("\n", " ").replace("\r", " ")
+            self.word_count = len(escaped_lyrics.split(" "))
 

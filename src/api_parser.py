@@ -10,20 +10,7 @@ def build_artist_search_query_url(artist_name: str) -> str:
     return f"{_api_prefix}/artist/?query=artist:{artist_name}"
 
 
-# def build_release_group_lookup_url(artist_id: str) -> str:
-#     """
-#     Given the ID of an artist, build a url to pass to the API in order to
-#     retrieve data on releases by that artist.
-#     :param artist_id: The id the artist is assigned in the MusicBrains database.
-#     :return: A url string that can be passed to the MusicBrainz API to get the required release data.
-#     """
-#     # The lookup is retrieving release entities matching the artist id - filtering out any non-official
-#     # or repetitive releases such as bootlegs, remixes, etc. with the `status:official` and `NOT secondarytype:*`
-#     # query args.
-#     return f"{_api_prefix}/release-group?query=arid:{artist_id}%20AND%20status:official%20NOT%20secondarytype:*"
-
-
-def build_recordings_lookup_url(artist_id: str, offset: int = 0) -> str:
+def build_recordings_query_url(artist_id: str, offset: int = 0) -> str:
     """
     Given the ID of an artist, build a url to pass to the API in order to retrieve data
     on recordings/tracks released by that artist.
@@ -34,3 +21,22 @@ def build_recordings_lookup_url(artist_id: str, offset: int = 0) -> str:
     """
     return f"{_api_prefix}/recording/?query=arid:{artist_id}%20AND%20status:official%20AND%20video:false%20NOT%20secondarytype:*&limit=100&offset={offset}"
 
+
+def build_lyrics_url(artist_name: str, song_title: str) -> str:
+    """
+    Given an artist name and a song title, build a url to pass to the lyrics API
+    to retrieve data on the lyrics for the given song.
+    :param artist_name:
+    :param song_title:
+    :return:
+    """
+    # TODO - Clean the song titles before we build the urls
+    cleaned_artist_name = clean_string(artist_name)
+    cleaned_title = clean_string(song_title)
+    return f"https://api.lyrics.ovh/v1/{artist_name}/{song_title}"
+
+
+def clean_string(input: str) -> str:
+    """"""
+    # TODO
+    return ""
