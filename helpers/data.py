@@ -1,8 +1,9 @@
 # TODO - dataclasses would probably work better here for most of these.
+#   since dataclasses make hashing easier we could do some sort of hash comparison to compare releases?
 
 
 class Artist:
-    def __init__(self, raw_data: str, name: str, mb_id: str):
+    def __init__(self, raw_data: str, name: str, mb_id: str, description: str):
         """
 
         :param raw_data: The full JSON data retrieved from the API call.
@@ -12,7 +13,22 @@ class Artist:
         self.raw_data = raw_data
         self.name: str = name
         self.mb_id: str = mb_id
+        self.description: str = description
+        self._tags: str
         self.releases: [Release] = []
+
+    def __str__(self):
+        return f"{self.name}"
+
+    @property
+    def tags(self):
+        return self._tags
+
+    @tags.setter
+    def tags(self, value: [str]):
+        """Unpack the list of tags into one string."""
+        tags_string = ", ".join(value)
+        self._tags = tags_string
 
 
 class Release:
@@ -51,6 +67,8 @@ class Track:
         self.mb_id = mb_id
         self.release = release
         self.release_type = release_type
+        #
+        self.raw_lyrics_data: str
         self._lyrics: str
         self.word_count: int = 0
 

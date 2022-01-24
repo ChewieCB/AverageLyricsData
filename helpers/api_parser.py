@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 _api_prefix = "https://musicbrainz.org/ws/2"
 
 
@@ -31,12 +33,20 @@ def build_lyrics_url(artist_name: str, song_title: str) -> str:
     :return:
     """
     # TODO - Clean the song titles before we build the urls
-    cleaned_artist_name = clean_string(artist_name)
-    cleaned_title = clean_string(song_title)
-    return f"https://api.lyrics.ovh/v1/{artist_name}/{song_title}"
+    cleaned_artist_name = sanitise_url_string(artist_name)
+    cleaned_title = sanitise_url_string(song_title)
+    return f"https://api.lyrics.ovh/v1/{cleaned_artist_name}/{cleaned_title}"
 
 
-def clean_string(input: str) -> str:
-    """"""
-    # TODO
-    return ""
+def sanitise_url_string(input_url: str) -> str:
+    """
+
+    :param input_url:
+    :return:
+    """
+    # Escape any special characters
+    output_url = quote(input_url)
+    # Remove any slashes
+    output_url = output_url.replace("/", "")
+
+    return output_url
