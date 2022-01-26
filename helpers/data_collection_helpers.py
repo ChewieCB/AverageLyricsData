@@ -3,10 +3,10 @@ import aiohttp
 import builtins
 import musicbrainzngs
 
-from . import IS_VERBOSE, MAX_SEARCH, OutColours
-from .data_cleanup_helpers import remove_lyrics_credit
+from . import MAX_SEARCH, OutColours
+from .data_cleanup_helpers import remove_lyrics_credit, remove_duplicate_recordings
 from . import api_parser
-from .data import Artist, Track
+from .data import Artist, Track, known_releases
 import helpers.output_helpers as oh
 
 
@@ -31,19 +31,6 @@ def get_artist_data(session: aiohttp.ClientSession, artist_name: str) -> (Artist
     # If we get no data from the API, return an error message.
     if not artist_data:
         return None, oh.fail("No artist found!")
-
-    # TODO - remove dead code
-    # url = api_parser.build_artist_search_query_url(artist_name)
-    #
-    # # Make a query request to the API
-    # async with session.get(url) as response:
-    #     artist_response = await response.json()
-    #
-    #     # If we get no data from the API, return an error message.
-    #     if not artist_response or len(artist_response["artists"]) == 0:
-    #         return None, oh.fail("No artist found!")
-
-    # artist_data = artist_response.get("artists")
 
     # If we get a lot of results from a unique or common artist name (or a fragment of another artist name)
     # then err on the side of caution and ask the user which artist they were looking for.
@@ -92,7 +79,7 @@ def select_artist_from_multiple_choices(artist_data):
         print(oh.separator(64))
         print(oh.bold("Multiple artists found, please select the correct one:"))
         print(oh.separator(64))
-        # TODO - configure the number of search results shown with an argparse flag
+
         for count, _artist in enumerate(artist_data[0:builtins.MAX_SEARCH]):
             # Get the data to display for each choice
             name = _artist.get("name")
@@ -177,17 +164,8 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
         tracks_retrieved += len(recording_data.get("recordings"))
 
         for track in recording_data["recordings"]:
-            _id = track.get("id")
-            _title = track.get("title")
-            _release_title = track.get("releases")[0].get("title")
-            _release_type = track.get("releases")[0].get("release-group").get("primary-type")
-
             current_track = Track(
                 raw_data=track,
-                name=_title,
-                mb_id=_id,
-                release=_release_title,
-                release_type=_release_type,
             )
             recordings.append(current_track)
 
@@ -213,7 +191,8 @@ async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: T
         else:
             # FIXME - this is failing on songs that have lyrics, find a better way to
             #   handle this content type issue.
-            print(oh.fail(f"Can't retrieve lyrics for {track.name}: " + response.headers['content-type']))
+            if builtins.IS_VERBOSE:
+                print(oh.fail(f"Can't retrieve lyrics for {track.name}: " + response.headers['content-type']))
             return None
 
         lyrics = lyrics_data.get("lyrics")
