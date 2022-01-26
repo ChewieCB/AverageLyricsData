@@ -1,6 +1,8 @@
 # TODO - dataclasses would probably work better here for most of these.
 #   since dataclasses make hashing easier we could do some sort of hash comparison to compare releases?
 
+known_releases = []
+
 
 class Artist:
     def __init__(self, raw_data: str, name: str, mb_id: str, description: str):
@@ -32,41 +34,28 @@ class Artist:
 
 
 class Release:
-    def __init__(self, raw_data: str, name: str, mb_id: str, year: str, type: str, artist: Artist):
-        """
-
-        :param name:
-        :param mb_id:
-        :param artist:
-        :param year:
-        """
+    def __init__(self, raw_data: dict):
+        """"""
         self.raw_data = raw_data
-        self.name = name
-        self.mb_id = mb_id
-        self.artist = artist
-        self.year = year
-        self.type = type
+        self.name = self.raw_data.get("title")
+        self.mb_id = self.raw_data.get("id")
+        self.year = self.raw_data.get("year")
+        self.release_type = self.raw_data.get("release-group").get("primary-type")
 
     def __str__(self):
-        return f"{self.year}: {self.name} ({self.type})"
+        return f"{self.year}: {self.name} ({self.release_type})"
 
     def __repr__(self):
-        return f"{self.year}: {self.name} ({self.type})"
+        return f"{self.year}: {self.name} ({self.release_type})"
 
 
 class Track:
-    def __init__(self, raw_data: str, name: str, mb_id: str, release: str, release_type: str):
-        """
-
-        :param name:
-        :param mb_id:
-        :param release:
-        """
-        self.raw_data = raw_data
-        self.name = name
-        self.mb_id = mb_id
-        self.release = release
-        self.release_type = release_type
+    def __init__(self, raw_data: dict):
+        """"""
+        self.raw_data: dict = raw_data
+        self.name: str = self.raw_data.get("title")
+        self.mb_id: str = self.raw_data.get("id")
+        self.release: Release = self._assign_release()
         #
         self.raw_lyrics_data: str
         self._lyrics: str
@@ -93,3 +82,18 @@ class Track:
             escaped_lyrics = self.lyrics.replace("\n", " ").replace("\r", " ")
             self.word_count = len(escaped_lyrics.split(" "))
 
+    def _assign_release(self) -> Release:
+        release_data = self.raw_data.get("releases")[0]
+        release_name = release_data.get("title")
+        release_mb_id = release_data.get("id")
+        # Check if a Release object exists in known_releases with the same name and mb_id passed to the constructor
+        _is_existing_release = False
+        for release in known_releases:
+            if release.name == release_name and release.mb_id == release_mb_id:
+                _is_existing_release = True
+                return release
+        # If the release doesn't exist yet, create it
+        if not _is_existing_release:
+            _new_release = Release(raw_data=release_data)
+            known_releases.append(_new_release)
+            return _new_release
