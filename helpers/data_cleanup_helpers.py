@@ -37,48 +37,59 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
     :return: Cleaned list of Track objects for each non-duplicate track
         and a count of how many tracks were removed.
     """
-    # Selector list to determine which elements of the raw data we want to keep
-    selector = [True] * (len(raw_recordings_data))
-
     original_length = len(raw_recordings_data)
+
+    output_data = raw_recordings_data.copy()
 
     print(oh.header("Cleaning duplicate tracks..."))
 
-    # FIXME - Hacky way of getting this to work, loop through each element and check if any other songs have the element
-    #   name as a substring, optimise later - bunch of issues with this but lets make a start at least.
-    for track, other_track in combinations(raw_recordings_data, 2):
-        track_index = raw_recordings_data.index(track)
-
+    # Loop over every recording we have
+    for recording in raw_recordings_data:
         # Quick sanity check to see if a track with the wrong artist ID has slipped through the search filters
-        if is_non_artist_song(track, artist):
-            if selector[track_index]:
+        if is_non_artist_song(recording, artist):
+            if builtins.IS_VERBOSE:
                 if builtins.IS_VERBOSE:
-                    print(oh.fail(f"{track} is not by the artist {artist.name} - removing."))
-                selector[track_index] = False
+                    print(oh.fail(f"{recording} is not by the artist {artist.name} - removing."))
+                if recording in output_data:
+                    output_data.remove(recording)
             continue
-        else:
-            # Check if the track name appears as a sub string in any other track
-            #
-            # If we have an exact match it's likely a single or EP re-release, in this case
-            # we prioritise album tracks
-            if other_track.name == track.name:
-                # Determine which one to remove:
-                # Is one a single with the same name? Remove that one.
-                if builtins.IS_VERBOSE:
-                    print(oh.cyan(f"Removing re-released track: {other_track}"))
-                selector[track_index] = False
-                continue
-            # If the other track contains the original track, it's
-            # likely some sort of re-release or alternate version
-            if track.name in other_track.name:
-                # Are the words "live", "remix", or "instrumental" in the name? Remove the track
-                if is_re_release_or_instrumental(track):
-                    selector[track_index] = False
-                    if builtins.IS_VERBOSE:
-                        print(oh.warning(f"Removing {track}! as it is likely a remix, instrumental, or live version."))
-                    continue
 
-    output_data = list(compress(raw_recordings_data, selector))
+        # Split the song name into a list of words so we can use the
+        # first word as the substring to find similar tracks
+        search_term = recording.name
+
+        # Find any recordings with similar names
+        similar_recordings = []
+        for track in raw_recordings_data:
+            substring = track.name.find(search_term)
+            if substring != -1:
+                if track.mb_id == recording.mb_id:
+                    continue
+                else:
+                    similar_recordings.append(track)
+
+        # Look for instrumental, live, remix, etc. track variants
+        if similar_recordings:
+            for sim in similar_recordings:
+                start_substr = sim.name.find(search_term)
+                end_substr = start_substr + len(search_term)
+                if is_re_release_or_instrumental(sim):
+                    if builtins.IS_VERBOSE:
+                        print(oh.warning(f"Removing {sim}! as it is likely a remix, instrumental, or live version."))
+                    if sim in output_data:
+                        output_data.remove(sim)
+                    continue
+                else:
+                    # If we have an exact match it's likely a single or EP re-release, in this case
+                    # we prioritise album tracks
+                    if sim.name == recording.name:
+                        # Determine which one to remove:
+                        # Is one a single with the same name? Remove that one.
+                        if builtins.IS_VERBOSE:
+                            print(oh.cyan(f"Removing re-released track: {sim}"))
+                            if sim in output_data:
+                                output_data.remove(sim)
+                        continue
 
     # Calculate how many tracks we've removed from the initial list
     new_length = len(output_data)
@@ -116,18 +127,19 @@ def is_re_release_or_instrumental(track: Track) -> bool:
     :param track:
     :return:
     """
-    # FIXME - refine this, it's removing partial matches that could be valid songs.
     # Clean the names of the track and release, removing any parentheses
     # and making them lowercase for comparison
     track_name = re.sub("[()]", '', track.name.lower())
-    release_name = re.sub("[()]", '', track.release.lower())
+    release_name = re.sub("[()]", '', track.release.name.lower())
 
     # Split the track and release names into words, we only want whole word instances of these
     # keywords to prevent removing valid song names like "Alive" or "Mixed Up"
     track_name_words = track_name.split(" ")
     release_name_words = release_name.split(" ")
-    for keyword in ["live", "mix", "remix", "cut", "take", "master", "mono", "deluxe", "demo", "version", "instrumental", "session", "acoustic"]:
-        if keyword in track_name_words or keyword in release_name_words:
+    for keyword in ["live", "mix", "remix", "cut", "take", "master", "mono", "deluxe", "demo", "version", "instrumental", "session", "acoustic", "rehearsal", "5.1"]:
+        if keyword in track_name_words:
+            return True
+        elif keyword in release_name_words:
             return True
     return False
 
