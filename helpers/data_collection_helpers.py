@@ -1,8 +1,10 @@
 import asyncio
 import aiohttp
-import config
+import aiohttp.web
+import backoff
 import musicbrainzngs
 
+import config
 from .data_cleanup_helpers import remove_lyrics_credit, remove_duplicate_recordings
 from . import api_parser
 from .data import Artist, Track, known_releases
@@ -116,6 +118,9 @@ def select_artist_from_multiple_choices(artist_data):
     return chosen_artist
 
 
+request_counter = 0
+
+
 async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) -> ([Track], str):
     """
 
@@ -132,41 +137,57 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
     #
     # To do this we offset the request data each iteration based on the number of tracks we know are in the list
     # (from count provided in the data) vs the number of tracks retrieved after each request.
+    #
+    # FIXME - This is a bit hacky, but we use global vars here to more easily pass these vars between this
+    #  function and each individual async function.
+    global request_counter
     request_counter = 0
+    global track_count
     track_count = 0
-    tracks_retrieved = 0
 
     print(oh.header("Finding songs..."))
-    # While the tracks retrieved is less than the number of tracks in the list, add an offset and make another request
-    # TODO - refactor this to be non-blocking for large discographies (Elvis, The Beatles)
-    while track_count == 0 or tracks_retrieved < track_count:
-        # Build the url
-        # TODO - Using the MusicBrainz python API yields more results but it's harder to make async
-        recordings_url = api_parser.build_recordings_query_url(artist.mb_id, tracks_retrieved)
 
-        # Make a query request to the API
-        # TODO - add error handling to determine when we've hit a request limit instead of a general crash
-        async with session.get(recordings_url) as response:
-            recording_data = await response.json()
+    # Make an initial request to find the number of tracks
+    recordings_url = api_parser.build_recordings_query_url(artist.mb_id, 0)
+    recording_data = await make_recordings_request(session, recordings_url)
+    if not recording_data:
+        return None, oh.fail("No songs found!")
 
-        # If we get data without any recordings data it's likely that
-        # the track count  is divisible by 100, so we break here.
-        if not recording_data.get("recordings"):
-            break
-        # If we get no data at all from the API, return an error message.
-        elif not recording_data or len(recording_data["recordings"]) == 0:
-            return None, oh.fail("No songs found!")
+    track_count = recording_data.get("count")
 
-        track_count = recording_data.get("count")
-        tracks_retrieved += len(recording_data.get("recordings"))
+    # If we need to make more than 1 request, batch all requests using asyncio
+    if track_count >= 100:
+        import math
+        requests_to_make = math.ceil(track_count / 100) - 1
 
-        for track in recording_data["recordings"]:
-            current_track = Track(
-                raw_data=track,
-            )
-            recordings.append(current_track)
+        tasks = []
+        for i in range(requests_to_make):
+            # Make a query request to the lyrics API
+            tracks_retrieved = (i + 1) * 100
+            url = api_parser.build_recordings_query_url(artist.mb_id, tracks_retrieved)
+            tasks.append(asyncio.ensure_future(make_recordings_request(session, url)))
 
-        request_counter += 1
+        async_recording_data = await asyncio.gather(*tasks)
+        async_recording_data = [i for i in async_recording_data if i]
+
+        # Combine the initial and async data by adding the initial data to the start of the list
+        recording_data = [recording_data, *async_recording_data]
+        # Combine each request's dict of tracks into one big dict of tracks
+        combined_data = []
+        for dataset in recording_data:
+            for item in dataset.get("recordings"):
+                combined_data.append(item)
+    else:
+        combined_data = recording_data.get("recordings")
+
+    print(f"{len(combined_data)}/{track_count} tracks retrieved")
+
+    # Create a Track object for each item
+    for track in combined_data:
+        current_track = Track(
+            raw_data=track,
+        )
+        recordings.append(current_track)
 
     timer_stop = perf_counter()
 
@@ -178,9 +199,42 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
     return recordings, None
 
 
+# Use backoff to handle HTTP errors and retry since the optimisation
+# speed of the async requests can cause us to hit rate limits
+@backoff.on_exception(backoff.expo, aiohttp.web.HTTPException, max_tries=10)
+async def make_recordings_request(session: aiohttp.ClientSession, url: str) -> dict:
+    """"""
+    retry_statuses = [x for x in range(100, 600)]
+    retry_statuses.remove(200)
+    retry_statuses.remove(429)
+
+    async with session.get(url) as response:
+        if response.status in retry_statuses:
+            print(oh.warning(f"Response returned status {response.status}, retrying."))
+            raise aiohttp.web.HTTPException
+        # if "application/json" in response.headers['content-type']:
+        recording_data = await response.json()
+
+        global request_counter
+        request_counter += 1
+
+        return recording_data
+
+
+# Use backoff to handle HTTP errors and retry since the async requests can cause us to hit rate limits
+@backoff.on_exception(backoff.expo, aiohttp.web.HTTPException, max_tries=10)
 async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: Track) -> Track:
     """"""
+    retry_statuses = [x for x in range(100, 600)]
+    retry_statuses.remove(200)
+    retry_statuses.remove(429)
+    retry_statuses.remove(404)
+
     async with session.get(url) as response:
+        if response.status in retry_statuses:
+            print(oh.warning(f"{track.name} returned status {response.status}, retrying."))
+            raise aiohttp.web.HTTPException
+
         # Disable the content_type check here since the lyrics API sends text/html for `no lyrics found` responses
         # and application/json for valid responses.
         if "application/json" in response.headers['content-type']:
@@ -211,9 +265,6 @@ async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: T
 
         track.lyrics = cleaned_lyrics
 
-        if config.IS_VERBOSE:
-            print(f"{track.name} has {track.word_count} words.")
-
         return track
 
 
@@ -240,6 +291,7 @@ async def get_song_lyrics(session: aiohttp.ClientSession, cleaned_recordings: [T
     recordings_with_lyrics = await asyncio.gather(*tasks)
 
     timer_stop = perf_counter()
+
     if config.PERFORMANCE_TIMING:
         print(oh.blue(f"{len(tasks)} lyric API requests made in {timer_stop - timer_start} seconds"))
 
