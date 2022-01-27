@@ -39,14 +39,15 @@ class Release:
         self.raw_data = raw_data
         self.name = self.raw_data.get("title")
         self.mb_id = self.raw_data.get("id")
-        self.year = self.raw_data.get("year")
+        self.date = self.raw_data.get("date")
         self.release_type = self.raw_data.get("release-group").get("primary-type")
+        self.tracks = []
 
     def __str__(self):
-        return f"{self.year}: {self.name} ({self.release_type})"
+        return f"{self.name} - {self.release_type} ({self.date})"
 
     def __repr__(self):
-        return f"{self.year}: {self.name} ({self.release_type})"
+        return f"{self.name} - {self.release_type} ({self.date})"
 
 
 class Track:
@@ -88,12 +89,21 @@ class Track:
         release_mb_id = release_data.get("id")
         # Check if a Release object exists in known_releases with the same name and mb_id passed to the constructor
         _is_existing_release = False
+        new_release = None
+
         for release in known_releases:
             if release.name == release_name and release.mb_id == release_mb_id:
                 _is_existing_release = True
-                return release
+                new_release = release
+
         # If the release doesn't exist yet, create it
         if not _is_existing_release:
-            _new_release = Release(raw_data=release_data)
-            known_releases.append(_new_release)
-            return _new_release
+            new_release = Release(raw_data=release_data)
+            known_releases.append(new_release)
+            # print(new_release)
+
+        # If this track object is not already part of the Release object's track list, add it
+        if self not in new_release.tracks:
+            new_release.tracks.append(self)
+
+        return new_release
