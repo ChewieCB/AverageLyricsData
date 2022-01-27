@@ -30,9 +30,11 @@ def build_lyrics_url(artist_name: str, song_title: str) -> str:
 
 def sanitise_url_string(input_url: str) -> str:
     """
-
-    :param input_url:
-    :return:
+    Remove any dangerous or unsupported characters from an artist or song name
+    as it could change the behaviour of our requests.
+    :param input_url: The raw url string to be cleaned.
+    :return: A version of the input string with any special characters escaped and
+        any backslashes removed.
     """
     # Escape any special characters
     output_url = quote(input_url)
