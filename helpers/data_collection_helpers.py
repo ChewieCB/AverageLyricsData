@@ -74,12 +74,12 @@ def get_artist_data(artist_name: str) -> (Artist, str):
 
 def select_artist_from_multiple_choices(artist_data):
     """"""
-    if len(artist_data) > builtins.MAX_SEARCH:
+    if len(artist_data) > 3:
         print(oh.separator(64))
         print(oh.bold("Multiple artists found, please select the correct one:"))
         print(oh.separator(64))
 
-        for count, _artist in enumerate(artist_data[0:builtins.MAX_SEARCH]):
+        for count, _artist in enumerate(artist_data[0:b3]):
             # Get the data to display for each choice
             name = _artist.get("name")
             desc = _artist.get("disambiguation")
@@ -100,7 +100,7 @@ def select_artist_from_multiple_choices(artist_data):
         while True:
             try:
                 artist_choice = int(input(""))
-                if 0 < artist_choice < builtins.MAX_SEARCH + 1:
+                if 0 < artist_choice < 3 + 1:
                     chosen_artist = artist_data[artist_choice - 1]
                     break
                 else:
