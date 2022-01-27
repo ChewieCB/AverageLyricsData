@@ -1,30 +1,8 @@
 import re
-import builtins
+import config
 
 from .data import Artist, Track, known_releases
 import helpers.output_helpers as oh
-
-
-def calculate_avg_word_count(cleaned_recordings: [Track]) -> (int, Exception):
-    """
-
-    :param cleaned_recordings:
-    :return:
-    """
-    total_words = 0
-
-    print(oh.header("Calculating average word count..."))
-
-    # Error handling
-    if not cleaned_recordings:
-        return None, oh.fail("No lyrics to count!")
-
-    for track in cleaned_recordings:
-        total_words += track.word_count
-
-    result = total_words // len(cleaned_recordings)
-
-    return result, None
 
 
 def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) -> [Track]:
@@ -45,8 +23,8 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
     for recording in raw_recordings_data:
         # Quick sanity check to see if a track with the wrong artist ID has slipped through the search filters
         if is_non_artist_song(recording, artist):
-            if builtins.IS_VERBOSE:
-                if builtins.IS_VERBOSE:
+            if config.IS_VERBOSE:
+                if config.IS_VERBOSE:
                     print(oh.fail(f"{recording} is not by the artist {artist.name} - removing."))
                 if recording in output_data:
                     output_data.remove(recording)
@@ -73,7 +51,7 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
                 start_substr = sim.name.find(search_term)
                 end_substr = start_substr + len(search_term)
                 if is_re_release_or_instrumental(sim):
-                    if builtins.IS_VERBOSE:
+                    if config.IS_VERBOSE:
                         print(oh.warning(f"Removing {sim}! as it is likely a remix, instrumental, or live version."))
                     if sim in output_data:
                         output_data.remove(sim)
@@ -85,7 +63,7 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
                     if sim.name == recording.name:
                         # Determine which one to remove:
                         # Is one a single with the same name? Remove that one.
-                        if builtins.IS_VERBOSE:
+                        if config.IS_VERBOSE:
                             print(oh.cyan(f"Removing re-released track: {sim}"))
                             if sim in output_data:
                                 output_data.remove(sim)
@@ -96,7 +74,7 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
     new_length = len(output_data)
     tracks_removed = original_length - new_length
 
-    if builtins.IS_VERBOSE:
+    if config.IS_VERBOSE:
         print(oh.separator())
         print(f"Original tracklist length = {oh.header(str(original_length))}")
         print(f"New tracklist length = {oh.green(str(new_length))}")

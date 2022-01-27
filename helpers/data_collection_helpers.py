@@ -1,6 +1,6 @@
 import asyncio
 import aiohttp
-import builtins
+import config
 import musicbrainzngs
 
 from .data_cleanup_helpers import remove_lyrics_credit, remove_duplicate_recordings
@@ -65,7 +65,7 @@ def get_artist_data(artist_name: str) -> (Artist, str):
         print(oh.bold(artist_object.tags))
     print(oh.separator())
 
-    if builtins.PERFORMANCE_TIMING:
+    if config.PERFORMANCE_TIMING:
         print(oh.blue(f"Artist API request made in {timer_stop - timer_start} seconds"))
 
     return artist_object, None
@@ -172,7 +172,7 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
 
     print(oh.cyan(f"Found {len(recordings)} tracks"))
 
-    if builtins.PERFORMANCE_TIMING:
+    if config.PERFORMANCE_TIMING:
         print(oh.blue(f"{len(recordings)} songs retrieved from API in {request_counter} requests in {timer_stop - timer_start} seconds"))
 
     return recordings, None
@@ -187,7 +187,7 @@ async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: T
             lyrics_data = await response.json()
         else:
             # FIXME - this sometimes fails with a 502 error, likely the lyrics API getting overloaded.
-            if builtins.IS_VERBOSE:
+            if config.IS_VERBOSE:
                 print(oh.fail(f"Can't retrieve lyrics for {track.name}: Response status {response.status}" + response.headers['content-type']))
             return None
 
@@ -196,7 +196,7 @@ async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: T
 
         # If we get no lyrics data from the API, show the user an error message and continue
         if error:
-            if builtins.IS_VERBOSE:
+            if config.IS_VERBOSE:
                 print(oh.fail(f"No lyrics found for {track.name}"))
             return None
 
@@ -205,13 +205,13 @@ async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: T
 
         # Some songs will be instrumental even after filtering (not all instrumental songs have it in the title)
         if cleaned_lyrics.lower().find("instrumental") != -1:
-            if builtins.IS_VERBOSE:
+            if config.IS_VERBOSE:
                 print(oh.warning(f"{track.name} is an instrumental!"))
             return None
 
         track.lyrics = cleaned_lyrics
 
-        if builtins.IS_VERBOSE:
+        if config.IS_VERBOSE:
             print(f"{track.name} has {track.word_count} words.")
 
         return track
@@ -240,7 +240,7 @@ async def get_song_lyrics(session: aiohttp.ClientSession, cleaned_recordings: [T
     recordings_with_lyrics = await asyncio.gather(*tasks)
 
     timer_stop = perf_counter()
-    if builtins.PERFORMANCE_TIMING:
+    if config.PERFORMANCE_TIMING:
         print(oh.blue(f"{len(tasks)} lyric API requests made in {timer_stop - timer_start} seconds"))
 
     # Remove any null values

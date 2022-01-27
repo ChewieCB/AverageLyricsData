@@ -1,11 +1,11 @@
 from sys import stderr
 from time import perf_counter
-import builtins
 import argparse
 import aiohttp
 import asyncio
 import musicbrainzngs
 
+import config
 from helpers.data_collection_helpers import get_artist_data, get_recordings_data, get_song_lyrics
 from helpers.data_cleanup_helpers import remove_duplicate_recordings
 from helpers.calculation_helpers import calculate_output, plot_data
@@ -46,10 +46,10 @@ async def main():
 
         timer_stop = perf_counter()
 
-        if builtins.PERFORMANCE_TIMING:
+        if config.PERFORMANCE_TIMING:
             print(f"Elapsed time: {timer_stop - timer_start}s\n\n")
 
-        if builtins.SHOW_GRAPH:
+        if config.SHOW_GRAPH:
             plot_data(recordings_with_lyrics, artist)
 
 
@@ -100,12 +100,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Set the global flags
-    # FIXME - this is hacky and bad practise, move these to a global settings module or something
-    builtins.IS_VERBOSE = args.verbose
-    builtins.PERFORMANCE_TIMING = args.performance
-    builtins.SHOW_STATISTICS = args.statistics
-    builtins.SHOW_GRAPH = args.graph
+    # Set the global config flags
+    config.IS_VERBOSE = args.verbose
+    config.PERFORMANCE_TIMING = args.performance
+    config.SHOW_STATISTICS = args.statistics
+    config.SHOW_GRAPH = args.graph
 
     # Main program
     asyncio.run(main())

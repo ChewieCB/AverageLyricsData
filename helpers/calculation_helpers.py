@@ -1,4 +1,4 @@
-import builtins
+import config
 import statistics
 import matplotlib.pyplot as plt
 
@@ -28,7 +28,7 @@ def calculate_output(recordings_with_lyrics: [Track], artist: Artist) -> (int, s
     print(oh.separator())
     print(oh.bold(f"{artist.name} uses an average of ") + oh.green(f"{average_word_count}") + oh.bold(
         " words in their songs"))
-    if builtins.SHOW_STATISTICS:
+    if config.SHOW_STATISTICS:
         print("\t - " + oh.blue("Standard deviation") + " of the sample is " + oh.bold(str(std_dev)))
         print("\t - " + oh.cyan("Variance") + " of the sample is " + oh.bold(str(variance)))
         print("\t - The song with the " + oh.cyan("least") + " words was " + oh.bold(
