@@ -3,7 +3,6 @@ import aiohttp
 import builtins
 import musicbrainzngs
 
-from . import MAX_SEARCH, OutColours
 from .data_cleanup_helpers import remove_lyrics_credit, remove_duplicate_recordings
 from . import api_parser
 from .data import Artist, Track, known_releases
@@ -23,7 +22,7 @@ def get_artist_data(artist_name: str) -> (Artist, str):
     print(oh.header("Finding artist..."))
 
     artist_data = musicbrainzngs.search_artists(
-        limit=builtins.MAX_SEARCH,
+        limit=3,
         artist=artist_name,
     ).get('artist-list')
 
@@ -249,7 +248,7 @@ async def get_song_lyrics(session: aiohttp.ClientSession, cleaned_recordings: [T
 
     # If we get no data from the API, return an error message.
     if not recordings_with_lyrics:
-        return None, f"{OutColours.FAIL}No lyrics found!{OutColours.ENDC}"
+        return None, oh.fail("No lyrics found!")
 
     # Display colouring
     found_num = len(recordings_with_lyrics)
