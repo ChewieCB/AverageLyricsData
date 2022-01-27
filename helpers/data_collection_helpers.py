@@ -10,10 +10,9 @@ from .data import Artist, Track, known_releases
 import helpers.output_helpers as oh
 
 
-def get_artist_data(session: aiohttp.ClientSession, artist_name: str) -> (Artist, str):
+def get_artist_data(artist_name: str) -> (Artist, str):
     """
 
-    :param session:
     :param artist_name:
     :return:
     """
@@ -143,12 +142,11 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
     # TODO - refactor this to be non-blocking for large discographies (Elvis, The Beatles)
     while track_count == 0 or tracks_retrieved < track_count:
         # Build the url
-        # FIXME - not getting all album data for some reason? Alpha/Omega don't show up :/
-        # Using the MusicBrainz python API yields more results but it's harder to make async
+        # TODO - Using the MusicBrainz python API yields more results but it's harder to make async
         recordings_url = api_parser.build_recordings_query_url(artist.mb_id, tracks_retrieved)
 
         # Make a query request to the API
-        # TODO - add error handling to determine when we've hit a request limit instead of a blanket crash
+        # TODO - add error handling to determine when we've hit a request limit instead of a general crash
         async with session.get(recordings_url) as response:
             recording_data = await response.json()
 
@@ -189,10 +187,9 @@ async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: T
         if "application/json" in response.headers['content-type']:
             lyrics_data = await response.json()
         else:
-            # FIXME - this is failing on songs that have lyrics, find a better way to
-            #   handle this content type issue.
+            # FIXME - this sometimes fails with a 502 error, likely the lyrics API getting overloaded.
             if builtins.IS_VERBOSE:
-                print(oh.fail(f"Can't retrieve lyrics for {track.name}: " + response.headers['content-type']))
+                print(oh.fail(f"Can't retrieve lyrics for {track.name}: Response status {response.status}" + response.headers['content-type']))
             return None
 
         lyrics = lyrics_data.get("lyrics")
@@ -257,13 +254,11 @@ async def get_song_lyrics(session: aiohttp.ClientSession, cleaned_recordings: [T
     # Display colouring
     found_num = len(recordings_with_lyrics)
     cleaned_num = len(cleaned_recordings)
-    found_func = oh.bold
+    found_func = oh.warning
 
     if found_num == cleaned_num:
         found_func = oh.green
     elif found_num < cleaned_num / 2:
-        found_func = oh.warning
-    elif found_num < cleaned_num / 3:
         found_func = oh.fail
 
     found_lyrics_str = found_func(f"{found_num}")
