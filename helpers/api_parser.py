@@ -32,7 +32,6 @@ def build_lyrics_url(artist_name: str, song_title: str) -> str:
     :param song_title:
     :return:
     """
-    # TODO - Clean the song titles before we build the urls
     cleaned_artist_name = sanitise_url_string(artist_name)
     cleaned_title = sanitise_url_string(song_title)
     return f"https://api.lyrics.ovh/v1/{cleaned_artist_name}/{cleaned_title}"
@@ -47,6 +46,6 @@ def sanitise_url_string(input_url: str) -> str:
     # Escape any special characters
     output_url = quote(input_url)
     # Remove any slashes
-    output_url = output_url.replace("/", "")
+    output_url = output_url.replace("/", " ")
 
     return output_url
