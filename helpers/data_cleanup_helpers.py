@@ -1,9 +1,6 @@
 import re
-from sys import stderr
 import builtins
-from itertools import combinations, compress
-from . import IS_VERBOSE, OutColours
-from .data import Artist, Track
+from .data import Artist, Track, known_releases
 import helpers.output_helpers as oh
 
 
@@ -19,7 +16,7 @@ def calculate_avg_word_count(cleaned_recordings: [Track]) -> (int, Exception):
 
     # Error handling
     if not cleaned_recordings:
-        return None, f"{OutColours.FAIL}No lyrics to count!{OutColours.ENDC}"
+        return None, oh.fail("No lyrics to count!")
 
     for track in cleaned_recordings:
         total_words += track.word_count
@@ -52,6 +49,7 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
                     print(oh.fail(f"{recording} is not by the artist {artist.name} - removing."))
                 if recording in output_data:
                     output_data.remove(recording)
+                    remove_from_releases(recording)
             continue
 
         # Split the song name into a list of words so we can use the
@@ -78,6 +76,7 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
                         print(oh.warning(f"Removing {sim}! as it is likely a remix, instrumental, or live version."))
                     if sim in output_data:
                         output_data.remove(sim)
+                        remove_from_releases(sim)
                     continue
                 else:
                     # If we have an exact match it's likely a single or EP re-release, in this case
@@ -89,6 +88,7 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
                             print(oh.cyan(f"Removing re-released track: {sim}"))
                             if sim in output_data:
                                 output_data.remove(sim)
+                                remove_from_releases(sim)
                         continue
 
     # Calculate how many tracks we've removed from the initial list
@@ -105,6 +105,16 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
     print(oh.cyan(f"Removed {tracks_removed} duplicates, remixes, or live tracks"))
 
     return output_data
+
+
+def remove_from_releases(track: Track) -> None:
+    """"""
+    for release in known_releases:
+        if track in release.tracks:
+            # print(oh.fail(f"Removed {track.name} from {release.name} tracklist!"))
+            release.tracks.remove(track)
+            if len(release.tracks) == 0:
+                known_releases.remove(release)
 
 
 def is_non_artist_song(track: Track, artist: Artist) -> bool:
