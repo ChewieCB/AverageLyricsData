@@ -3,15 +3,6 @@ from urllib.parse import quote
 _api_prefix = "https://musicbrainz.org/ws/2"
 
 
-def build_artist_search_query_url(artist_name: str) -> str:
-    """
-    Given the name of an artist, build a url to query the API in order to retrieve the artist ID.
-    :param artist_name: The name of the artist we're searching for.
-    :return: A url string that can be passed to the MusicBrainz API to get the required artist data.
-    """
-    return f"{_api_prefix}/artist/?query=artist:{artist_name}"
-
-
 def build_recordings_query_url(artist_id: str, offset: int = 0) -> str:
     """
     Given the ID of an artist, build a url to pass to the API in order to retrieve data
