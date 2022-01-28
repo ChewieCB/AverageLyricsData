@@ -127,6 +127,7 @@ def select_artist_from_multiple_choices(artist_data) -> dict:
 
 
 request_counter = 0
+track_count = 0
 
 
 async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) -> ([Track], str):
@@ -146,7 +147,7 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
     # To do this we offset the request data each iteration based on the number of tracks we know are in the list
     # (from count provided in the data) vs the number of tracks retrieved after each request.
     #
-    # FIXME - This is a bit hacky, but we use global vars here to more easily pass these vars between this
+    # FIXME - This is a bit hacky, we use global vars here to more easily pass these vars between this
     #  function and each individual async function.
     global request_counter
     request_counter = 0
