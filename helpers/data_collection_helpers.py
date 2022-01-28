@@ -217,7 +217,8 @@ async def make_recordings_request(session: aiohttp.ClientSession, url: str) -> d
 
     async with session.get(url) as response:
         if response.status in retry_statuses:
-            print(oh.warning(f"Response returned status {response.status}, retrying."))
+            if flags.IS_VERBOSE:
+                print(oh.warning(f"Response returned status {response.status}, retrying."))
             raise aiohttp.web.HTTPException
         recording_data = await response.json()
 
@@ -238,7 +239,8 @@ async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: T
 
     async with session.get(url) as response:
         if response.status in retry_statuses:
-            print(oh.warning(f"{track.name} returned status {response.status}, retrying."))
+            if flags.IS_VERBOSE:
+                print(oh.warning(f"{track.name} returned status {response.status}, retrying."))
             raise aiohttp.web.HTTPException
 
         # Disable the content_type check here since the lyrics API sends text/html for `no lyrics found` responses
