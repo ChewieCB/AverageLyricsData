@@ -4,7 +4,7 @@ import aiohttp.web
 import backoff
 import musicbrainzngs
 
-import config
+import flags
 from .data_cleanup_helpers import remove_lyrics_credit, remove_duplicate_recordings
 from . import api_parser
 from .data import Artist, Track, known_releases
@@ -67,20 +67,27 @@ def get_artist_data(artist_name: str) -> (Artist, str):
         print(oh.bold(artist_object.tags))
     print(oh.separator())
 
-    if config.PERFORMANCE_TIMING:
+    if flags.PERFORMANCE_TIMING:
         print(oh.blue(f"Artist API request made in {timer_stop - timer_start} seconds"))
 
     return artist_object, None
 
 
-def select_artist_from_multiple_choices(artist_data):
-    """"""
-    if len(artist_data) > 3:
+def select_artist_from_multiple_choices(artist_data) -> dict:
+    """
+    If the `MAX_SEARCH_RESULTS` arg is used to broaden the scope of an Artist search and the API response
+    contains multiple entries that could be the intended Artist data, then we show information from
+    each dataset to the user and prompt them to choose the most appropriate dataset.
+    :param artist_data: List of JSON dicts returned by the API request containing a number of datasets on
+        artists with similar names to the search query.
+    :return: The dataset of the Artist that the user selects.
+    """
+    if len(artist_data) >= flags.MAX_SEARCH_RESULTS > 1:
         print(oh.separator(64))
         print(oh.bold("Multiple artists found, please select the correct one:"))
         print(oh.separator(64))
 
-        for count, _artist in enumerate(artist_data[0:b3]):
+        for count, _artist in enumerate(artist_data[0:flags.MAX_SEARCH_RESULTS]):
             # Get the data to display for each choice
             name = _artist.get("name")
             desc = _artist.get("disambiguation")
@@ -101,16 +108,16 @@ def select_artist_from_multiple_choices(artist_data):
         while True:
             try:
                 artist_choice = int(input(""))
-                if 0 < artist_choice < 3 + 1:
+                if 0 < artist_choice < flags.MAX_SEARCH_RESULTS + 1:
                     chosen_artist = artist_data[artist_choice - 1]
                     break
                 else:
                     raise ValueError
             except ValueError:
                 if artist_choice:
-                    print(f"`{artist_choice + 1}` is not a valid choice, try again.")
+                    print(oh.fail(f"`{artist_choice}` is not a valid choice, try again."))
                 else:
-                    print("Not a valid choice, try again.")
+                    print(oh.fail("Not a valid choice, try again."))
                 artist_choice = None
     else:
         chosen_artist = artist_data[0]
@@ -180,8 +187,6 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
     else:
         combined_data = recording_data.get("recordings")
 
-    print(f"{len(combined_data)}/{track_count} tracks retrieved")
-
     # Create a Track object for each item
     for track in combined_data:
         current_track = Track(
@@ -193,7 +198,7 @@ async def get_recordings_data(session: aiohttp.ClientSession, artist: Artist) ->
 
     print(oh.cyan(f"Found {len(recordings)} tracks"))
 
-    if config.PERFORMANCE_TIMING:
+    if flags.PERFORMANCE_TIMING:
         print(oh.blue(f"{len(recordings)} songs retrieved from API in {request_counter} requests in {timer_stop - timer_start} seconds"))
 
     return recordings, None
@@ -240,8 +245,7 @@ async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: T
         if "application/json" in response.headers['content-type']:
             lyrics_data = await response.json()
         else:
-            # FIXME - this sometimes fails with a 502 error, likely the lyrics API getting overloaded.
-            if config.IS_VERBOSE:
+            if flags.IS_VERBOSE:
                 print(oh.fail(f"Can't retrieve lyrics for {track.name}: Response status {response.status}" + response.headers['content-type']))
             return None
 
@@ -250,7 +254,7 @@ async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: T
 
         # If we get no lyrics data from the API, show the user an error message and continue
         if error:
-            if config.IS_VERBOSE:
+            if flags.IS_VERBOSE:
                 print(oh.fail(f"No lyrics found for {track.name}"))
             return None
 
@@ -259,7 +263,7 @@ async def make_lyrics_request(session: aiohttp.ClientSession, url: str, track: T
 
         # Some songs will be instrumental even after filtering (not all instrumental songs have it in the title)
         if cleaned_lyrics.lower().find("instrumental") != -1:
-            if config.IS_VERBOSE:
+            if flags.IS_VERBOSE:
                 print(oh.warning(f"{track.name} is an instrumental!"))
             return None
 
@@ -292,7 +296,7 @@ async def get_song_lyrics(session: aiohttp.ClientSession, cleaned_recordings: [T
 
     timer_stop = perf_counter()
 
-    if config.PERFORMANCE_TIMING:
+    if flags.PERFORMANCE_TIMING:
         print(oh.blue(f"{len(tasks)} lyric API requests made in {timer_stop - timer_start} seconds"))
 
     # Remove any null values

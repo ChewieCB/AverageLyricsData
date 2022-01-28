@@ -5,14 +5,13 @@ import aiohttp
 import asyncio
 import musicbrainzngs
 
-import config
+import flags
 from helpers.data_collection_helpers import get_artist_data, get_recordings_data, get_song_lyrics
 from helpers.data_cleanup_helpers import remove_duplicate_recordings
 from helpers.calculation_helpers import calculate_output, plot_data
 
 
 async def main():
-    """"""
     # Await a user input for the artist name
     artist_name_query = input("Enter artist name: ")
 
@@ -46,11 +45,11 @@ async def main():
 
         timer_stop = perf_counter()
 
-        if config.PERFORMANCE_TIMING:
+        if flags.PERFORMANCE_TIMING:
             print(f"Elapsed time: {timer_stop - timer_start}s\n\n")
 
-        if config.SHOW_GRAPH:
-            plot_data(recordings_with_lyrics, artist)
+        if flags.SHOW_GRAPH:
+            plot_data(recordings_with_lyrics, average_word_count, artist)
 
 
 def handle_error(err: str) -> bool:
@@ -91,6 +90,12 @@ if __name__ == "__main__":
         default=False
     )
     parser.add_argument(
+        "-r", "--results",
+        help="the number of results to show for Artist queries",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
         "-g", "--graph",
         help="show graph output of data",
         action="store_true",
@@ -100,11 +105,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Set the global config flags
-    config.IS_VERBOSE = args.verbose
-    config.PERFORMANCE_TIMING = args.performance
-    config.SHOW_STATISTICS = args.statistics
-    config.SHOW_GRAPH = args.graph
+    # Set the global flags
+    flags.IS_VERBOSE = args.verbose
+    flags.MAX_SEARCH_RESULTS = args.results
+    flags.PERFORMANCE_TIMING = args.performance
+    flags.SHOW_STATISTICS = args.statistics
+    flags.SHOW_GRAPH = args.graph
 
     # Main program
     asyncio.run(main())
