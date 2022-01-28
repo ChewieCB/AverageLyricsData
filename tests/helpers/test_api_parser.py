@@ -1,6 +1,7 @@
 from unittest import TestCase
+from unittest.mock import patch
 import requests
-from api_parser import build_artist_search_query_url, build_recordings_query_url, build_lyrics_url
+from helpers.api_parser import build_recordings_query_url, build_lyrics_url, sanitise_url_string
 
 
 class TestAPISetup(TestCase):
@@ -14,7 +15,7 @@ class TestAPISetup(TestCase):
         """Create a session object we can make requests and check responses with."""
         self.session = requests.Session()
         self.session.headers.update({"Accept": "application/json"})
-        # These attributes are either set by the child class, or set within make_API_call()
+        # These attributes are virtual - either set by the child class, or set within make_API_call()
         self.query_url = None
         self.response = None
         self.response_data = None
@@ -48,30 +49,8 @@ class TestAPISetup(TestCase):
         self.assertEqual(self.response.status_code, 200)
 
 
-class TestArtistQueryGeneration(TestAPISetup):
-    def setUp(self) -> None:
-        """"""
-        super().setUp()
-        # Generate a valid url for an artist that we know should work
-        self.query_url = build_artist_search_query_url("The Beatles")
-        self.make_API_call()
-
-        self.artist_name = self.response_data.get("artists")[0].get("name")
-
-    def test_query_returns_correct_artist(self):
-        """
-        Check that the artist returned from the API query is the one we intended.
-
-        This is ultimately dependent on the MusicBrainz database since we're taking the
-        top result of their search algorithm, but we need to at least check that we get
-        the expected result for more well-known artists we know work.
-        """
-        self.assertEqual(self.artist_name, "The Beatles")
-
-
 class TestRecordingsQueryGeneration(TestAPISetup):
     def setUp(self) -> None:
-        """"""
         super().setUp()
         # This is the artist ID for Nine Inch Nails, the artist has a lot of secondary releases, demos, etc.
         self.query_url = build_recordings_query_url("b7ffd2af-418f-4be2-bdd1-22f8b48613da")
@@ -106,20 +85,55 @@ class TestRecordingsQueryGeneration(TestAPISetup):
 
 class TestLyricsAPICallGeneration(TestAPISetup):
     def setUp(self) -> None:
-        """"""
         super().setUp()
 
-        self.query_url = build_lyrics_url("The Dillinger Escape Plan", "One of Us is the Killer")
+    def test_api_call_returns_lyrics_with_valid_inputs(self):
+        """Given an artist and song title known to be valid in the API, assert that passing
+        these args to `build_lyrics_url` and making a request returns the expected lyrics."""
+        self.query_url = build_lyrics_url("Napalm Death", "You Suffer")
         self.make_API_call()
+        self.test_API_call_returns_a_valid_response()
 
         self.lyrics = self.response_data.get("lyrics")
+        self.assertEqual(
+            self.lyrics,
+            "You suffer...\r\nBut why?"
+        )
 
-    def test_api_call_returns_lyrics(self):
-        """"""
-        self.assertNotEqual(self.lyrics, "No lyrics found")
+    def test_api_call_returns_error_with_invalid_inputs(self):
+        """Given an artist/song input known to be invalid, assert that passing these
+        ars to `build_lyrics_url` and making a request returns a handled error."""
+        # FIXME
+        self.query_url = build_lyrics_url("Not A Band", "Invalid Song")
+        self.make_API_call()
+        self.assertFalse(
+            self.test_API_call_returns_a_valid_response()
+        )
 
-    def test_api_call_cleans_string_inputs(self):
+        # self.lyrics = self.response_data.get("lyrics")
+        self.assertEqual(
+            self.response_data,
+            {"error": "No lyrics found"}
+        )
+
+    def test_api_call_handles_empty_input(self):
         """"""
-        # TODO
-        pass
+        # FIXME
+        self.query_url = build_lyrics_url("Not A Band", "")
+        self.make_API_call()
+        self.test_API_call_returns_a_valid_response()
+
+    @patch("helpers.api_parser.sanitise_url_string")
+    def test_sanitise_url_string_called_on_build_lyrics(self, mock_sanitise_method) -> None:
+        """Assert that the method `sanitise_url_string` is called when the `build_lyrics_url`
+        method is called with valid arguments."""
+        build_lyrics_url("TestArtist", "TestTitle")
+        mock_sanitise_method.assert_called()
+
+    def test_sanitise_url_string_escapes_characters(self):
+        """Assert that the passing an unescaped string to `sanitise_url_string
+        returns a cleaned and properly escaped url string."""
+        dirty_url = """only.thi's--should" b;e | vIsib/?l!e"  """
+        cleaned_url = "only.thi%27s--should%22%20b%3Be%20%7C%20vIsib %3Fl%21e%22%20%20"
+        self.assertEqual(sanitise_url_string(dirty_url), cleaned_url)
 
