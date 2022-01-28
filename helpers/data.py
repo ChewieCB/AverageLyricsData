@@ -7,10 +7,11 @@ known_releases = []
 class Artist:
     def __init__(self, raw_data: str, name: str, mb_id: str, description: str):
         """
-
+        Class to store data for a given Artist based on data retrieved from the MusicBrainz API.
         :param raw_data: The full JSON data retrieved from the API call.
         :param name: Full or official name of the artist returned by the API search.
         :param mb_id: Artist id string used by the musicbrainz API for lookups.
+        :param description: A short description of the artist to differentiate between artists with similar names.
         """
         self.raw_data = raw_data
         self.name: str = name
@@ -35,7 +36,11 @@ class Artist:
 
 class Release:
     def __init__(self, raw_data: dict):
-        """"""
+        """
+        Class to store data for a single Release (i.e. a Single, an EP, an Album, etc.) by an Artist based
+        on data retrieved from the MusicBrainz API.
+        :param raw_data: The full JSON data retrieved from the API call.
+        """
         self.raw_data = raw_data
         self.name = self.raw_data.get("title")
         self.mb_id = self.raw_data.get("id")
@@ -52,7 +57,10 @@ class Release:
 
 class Track:
     def __init__(self, raw_data: dict):
-        """"""
+        """
+        Class to store data for a single Track by an Artist based on data retrieved from the MusicBrainz API.
+        :param raw_data: The full JSON data retrieved from the API call.
+        """
         self.raw_data: dict = raw_data
         self.name: str = self.raw_data.get("title")
         self.mb_id: str = self.raw_data.get("id")
@@ -84,6 +92,13 @@ class Track:
             self.word_count = len(escaped_lyrics.split(" "))
 
     def _assign_release(self) -> Release:
+        """When we get Track data details of the track's Release is also included, using this method we
+        build backwards to either assign the new Track object to the existing Release object's `tracks`
+        attribute, or to create a new Release object based on the data derived from the track and assign
+        the Track to the new Release's `tracks attribute.
+        :returns: The Release object linked to this Track object.
+        """
+        # TODO - improve this, we're getting a bunch of releases with different IDs - find a way to merge them
         release_data = self.raw_data.get("releases")[0]
         release_name = release_data.get("title")
         release_mb_id = release_data.get("id")

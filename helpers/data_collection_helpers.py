@@ -13,9 +13,12 @@ import helpers.output_helpers as oh
 
 def get_artist_data(artist_name: str) -> (Artist, str):
     """
-
-    :param artist_name:
-    :return:
+    Given the name of an artist, search the MusicBrainz API for said artist - prompting the user
+    for a choice if multiple results are returned, and build an Artist object based on the
+    data stored in the database.
+    :param artist_name: The name of the artist to search for data on.
+    :return: A tuple containing the new Artist object instantiated from the API data,
+        and a string to be passed as an error message.
     """
     from time import perf_counter
     timer_start = perf_counter()
@@ -34,8 +37,6 @@ def get_artist_data(artist_name: str) -> (Artist, str):
 
     # If we get a lot of results from a unique or common artist name (or a fragment of another artist name)
     # then err on the side of caution and ask the user which artist they were looking for.
-    # TODO - add a check to determine when this is actually necessary, using the python API for MusicBrainz
-    #   has improved search quality drastically.
     artist = select_artist_from_multiple_choices(artist_data)
 
     # Assign the data from the API into an Artist class for later reference
@@ -217,7 +218,6 @@ async def make_recordings_request(session: aiohttp.ClientSession, url: str) -> d
         if response.status in retry_statuses:
             print(oh.warning(f"Response returned status {response.status}, retrying."))
             raise aiohttp.web.HTTPException
-        # if "application/json" in response.headers['content-type']:
         recording_data = await response.json()
 
         global request_counter

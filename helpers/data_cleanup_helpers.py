@@ -8,10 +8,9 @@ import helpers.output_helpers as oh
 def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) -> [Track]:
     """
     Go through each recording from the data and remove any duplicate tracks.
-    :param raw_recordings_data: A list of Track objects.
-    :param artist:
-    :return: Cleaned list of Track objects for each non-duplicate track
-        and a count of how many tracks were removed.
+    :param raw_recordings_data: A list of Track objects to check for duplicates
+    :param artist: The Artist linked to the Tracks
+    :return: Cleaned list of Track objects containing each non-duplicate track.
     """
     original_length = len(raw_recordings_data)
 
@@ -87,7 +86,13 @@ def remove_duplicate_recordings(raw_recordings_data: [Track], artist: Artist) ->
 
 
 def remove_from_releases(track: Track) -> None:
-    """"""
+    """
+    When removing a duplicate track we want to also remove it from it's linked Release object, if a Release
+    object has no more elements in its `tracks` attribute then we want to remove the Release object from
+    the list of known_releases entirely.
+    :param track: The Track object marked as duplicate that we are removing
+    :return: None
+    """
     for release in known_releases:
         if track in release.tracks:
             # print(oh.fail(f"Removed {track.name} from {release.name} tracklist!"))
@@ -99,9 +104,9 @@ def remove_from_releases(track: Track) -> None:
 def is_non_artist_song(track: Track, artist: Artist) -> bool:
     """
     Helper method to detect songs not by the chosen artist that have slipped through the API search filter.
-    :param track:
-    :param artist:
-    :return:
+    :param track: Track object to check.
+    :param artist: Artist object linked to the track.
+    :return: A boolean value representing whether or not the track is a non-artist song.
     """
     track_artist_id = track.raw_data.get("artist-credit")[0].get("artist").get("id")
     if track_artist_id != artist.mb_id:
@@ -114,7 +119,8 @@ def is_re_release_or_instrumental(track: Track) -> bool:
     Helper method to detect songs re-released as live or remixed versions,
     and instrumental tracks we don't need to find lyrics for.
     :param track:
-    :return:
+    :return: A boolean value representing whether or not the track is a re-release, instrumental,
+        demo, or any other kind of duplicate version of an existing song in the data.
     """
     # Clean the names of the track and release, removing any parentheses
     # and making them lowercase for comparison
@@ -136,8 +142,8 @@ def is_re_release_or_instrumental(track: Track) -> bool:
 def remove_lyrics_credit(lyrics: str) -> str:
     """
     Helper method to remove known header lines that are returned for some songs on the lyrics API.
-    :param lyrics:
-    :return:
+    :param lyrics: The lyrics string returned from the lyrics API.
+    :return: The input string stripped of a known substring used as a header in some of the API's data sources.
     """
     local_lyrics = lyrics
     # The header line is in French and runs up until the first \r\n escape sequence, so we look for the
