@@ -6,7 +6,7 @@ LyricsAvg should come pre-built for **Linux**, you can find the executable in th
 
 #### If you need to build LyricsAvg for another OS then you can run the following:
 
-Make sure you have `pyinstaller` installed on your local Python environment (`pip install pyinstaller`).
+Make sure you have `pyinstaller` installed on your local Python (_3.9 and above_) environment (`pip install pyinstaller`).
 
 From the repository root run `pyinstaller main.py -n lyrics_avg --onefile` to build an executable file within `dist/`.
 
